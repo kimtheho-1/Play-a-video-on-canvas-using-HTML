@@ -1,0 +1,121 @@
+<!doctype html>
+<html>
+    <head>
+        <title>kimtheho Play a video on canvas using HTML</title>
+        <style>
+            #video {
+                display: none;
+            }
+        </style>
+    </head>    
+    <body>
+        <h1>Play a video on canvas using HTML.</h1>
+        
+        <video id="video" muted ></video>
+        <canvas id="canvasOutput" ></canvas>
+        <script async src="./js/opencv.js" type="text/javascript" onload="onCvLoaded();"></script>
+        <input type="file" id='video-file' accept="video/*">
+        
+        <script>
+        
+            function onCvLoaded () {
+                console.log('cv', cv);
+                cv.onRuntimeInitialized = onReady;
+            }
+            
+            const video         = document.getElementById('video');
+            const actionBtn     = document.getElementById('actionBtn');
+            const canvasElement = document.getElementById('canvasOutput');
+            const FPS           = 30;
+            
+            let stream;
+            let streaming       = false;
+            let videoCurrentSrc = null;
+            
+            function onReady () {
+                console.log('ready');
+                
+                let src;
+                let dst;
+                let cap;
+
+                video.controls = true;
+                video.addEventListener('play', start);
+                video.addEventListener('pause', stop);
+                video.addEventListener('ended', stop);
+
+                function start () {
+                    console.log('playing...');
+                    streaming = true;
+                    const width = video.width;
+                    const height = video.height;
+                    src = new cv.Mat(height, width, cv.CV_8UC4);
+                    dst = new cv.Mat(height, width, cv.CV_8UC1);
+                    cap = new cv.VideoCapture(video);
+                }
+
+                function stop () {
+                    console.log('paused or ended');
+                    streaming = false;
+                }
+
+                function processVideo () {
+                    if (!streaming) {
+                        src.delete();
+                        dst.delete();
+                        return;
+                    }
+                    const begin = Date.now();
+                    cap.read(src)
+                    //cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY);
+                    cv.cvtColor(src, dst, cv.COLOR_RGB2RGBA);
+                    
+                    cv.imshow('canvasOutput', dst);
+                    const delay = 1000/FPS - (Date.now() - begin);
+                    setTimeout(processVideo, delay);
+                }
+                
+                let inputElement    = document.getElementById('video-file');
+            
+                inputElement.addEventListener('change', (e) => {
+                    
+                    
+                    let file        = event.target.files[0];
+                    let blobURL     = URL.createObjectURL(file);
+                    const myVideo   = document.querySelector("video");
+                    myVideo.src     = blobURL;
+                    
+                    myVideo.addEventListener( "loadedmetadata", function () {
+                                
+                        const width         = this.videoWidth;
+                        const height        = this.videoHeight;
+                        const SCALE_VIDEO   = 0.333333;
+                        
+                        let canvasWidth     = width     * SCALE_VIDEO;
+                        let canvasHeight    = height    * SCALE_VIDEO;
+                        
+                        myVideo.setAttribute('width', canvasWidth);
+                        myVideo.setAttribute('height', canvasHeight);
+                        
+                        canvasElement.setAttribute('width', canvasWidth);
+                        canvasElement.setAttribute('height', canvasHeight);
+                        
+                        if( videoCurrentSrc != this.currentSrc) {
+                            videoCurrentSrc = this.currentSrc;
+                            
+                            if (myVideo.paused || myVideo.ended) {
+                                myVideo.play();
+                                setTimeout(processVideo, 0);
+                            } else {
+                                myVideo.pause();
+                            }
+                        }
+                        
+                    }, false);
+                    
+                }, false); 
+            }
+
+        </script>
+    </body>
+</html>
